@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQLite Database Browser</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .upload-section {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            background: #f8f9fa;
+        }
+
+        .file-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-input-label {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            font-weight: 500;
+        }
+
+        .file-input-label:hover {
+            background: #0056b3;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            min-height: 600px;
+        }
+
+        .sidebar {
+            background: #f8f9fa;
+            border-right: 1px solid #e0e0e0;
+            padding: 20px;
+        }
+
+        .sidebar h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
+
+        .canned-queries {
+            margin-bottom: 30px;
+        }
+
+        .query-button {
+            display: block;
+            width: 100%;
+            background: white;
+            border: 1px solid #ddd;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+        }
+
+        .query-button:hover {
+            background: #e9ecef;
+            border-color: #007bff;
+        }
+
+        .tables-list {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .table-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        .table-item:hover {
+            background: #f8f9fa;
+        }
+
+        .table-item:last-child {
+            border-bottom: none;
+        }
+
+        .query-area {
+            padding: 20px;
+        }
+
+        .query-section {
+            margin-bottom: 20px;
+        }
+
+        .query-section h3 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .query-input {
+            width: 100%;
+            height: 120px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        .query-input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .query-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .results-section {
+            margin-top: 30px;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .results-table th {
+            background: #2c3e50;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .results-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .results-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #007bff;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                border-right: none;
+                border-bottom: 1px solid #e0e0e0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>SQLite Database Browser</h1>
+            <p>Run queries on your SQLite database directly in your browser</p>
+        </div>
+
+        <div class="upload-section">
+            <div class="file-input-wrapper">
+                <label for="dbFile" class="file-input-label">
+                    📁 Select Database File (org.db)
+                </label>
+                <input type="file" id="dbFile" class="file-input" accept=".db,.sqlite,.sqlite3">
+                <span id="fileName" style="color: #6c757d; font-style: italic;">No file selected</span>
+            </div>
+            <div id="status"></div>
+        </div>
+
+        <div class="main-content" id="mainContent" style="display: none;">
+            <div class="sidebar">
+                <div class="canned-queries">
+                    <h3>📋 Canned Queries</h3>
+                    <button class="query-button" data-query="SELECT name FROM sqlite_master WHERE type='table';">
+                        List all tables
+                    </button>
+                    <button class="query-button" data-query="SELECT sql FROM sqlite_master WHERE type='table';">
+                        Show table schemas
+                    </button>
+                    <button class="query-button" data-query="SELECT COUNT(*) as total_tables FROM sqlite_master WHERE type='table';">
+                        Count tables
+                    </button>
+                    <button class="query-button" data-query="PRAGMA table_info('table_name');">
+                        Describe table structure
+                    </button>
+                </div>
+
+                <div>
+                    <h3>🗂️ Tables</h3>
+                    <div class="tables-list" id="tablesList">
+                        <div class="table-item">Load database to see tables</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="query-area">
+                <div class="query-section">
+                    <h3>✏️ SQL Query Editor</h3>
+                    <textarea 
+                        id="queryInput" 
+                        class="query-input" 
+                        placeholder="Enter your SQL query here...&#10;&#10;Example:&#10;SELECT * FROM your_table_name LIMIT 10;"
+                    ></textarea>
+                    <div class="query-controls">
+                        <button id="executeBtn" class="btn btn-primary">▶️ Execute Query</button>
+                        <button id="clearBtn" class="btn btn-secondary">🗑️ Clear</button>
+                    </div>
+                </div>
+
+                <div class="results-section">
+                    <h3>📊 Query Results</h3>
+                    <div id="results">
+                        <div class="no-results">Execute a query to see results here</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let db = null;
+        let SQL = null;
+
+        // Initialize SQL.js
+        initSqlJs({
+            locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
+        }).then(sql => {
+            SQL = sql;
+            console.log('SQL.js initialized');
+        }).catch(err => {
+            showStatus('Failed to initialize SQL.js: ' + err.message, 'error');
+        });
+
+        // DOM elements
+        const dbFileInput = document.getElementById('dbFile');
+        const fileNameSpan = document.getElementById('fileName');
+        const statusDiv = document.getElementById('status');
+        const mainContent = document.getElementById('mainContent');
+        const queryInput = document.getElementById('queryInput');
+        const executeBtn = document.getElementById('executeBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const resultsDiv = document.getElementById('results');
+        const tablesListDiv = document.getElementById('tablesList');
+
+        // Event listeners
+        dbFileInput.addEventListener('change', loadDatabase);
+        executeBtn.addEventListener('click', executeQuery);
+        clearBtn.addEventListener('click', () => {
+            queryInput.value = '';
+            resultsDiv.innerHTML = '<div class="no-results">Execute a query to see results here</div>';
+        });
+
+        // Canned query buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('query-button')) {
+                queryInput.value = e.target.dataset.query;
+            }
+            if (e.target.classList.contains('table-item') && e.target.textContent !== 'Load database to see tables') {
+                queryInput.value = `SELECT * FROM ${e.target.textContent} LIMIT 10;`;
+            }
+        });
+
+        function showStatus(message, type) {
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        function loadDatabase(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!SQL) {
+                showStatus('SQL.js not yet initialized. Please wait and try again.', 'error');
+                return;
+            }
+
+            fileNameSpan.textContent = file.name;
+            showStatus('Loading database...', 'success');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const uInt8Array = new Uint8Array(e.target.result);
+                    db = new SQL.Database(uInt8Array);
+                    
+                    showStatus(`Database "${file.name}" loaded successfully!`, 'success');
+                    mainContent.style.display = 'grid';
+                    
+                    // Load table list
+                    loadTables();
+                    
+                } catch (error) {
+                    showStatus('Error loading database: ' + error.message, 'error');
+                    console.error('Database load error:', error);
+                }
+            };
+            
+            reader.onerror = function() {
+                showStatus('Error reading file', 'error');
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        function loadTables() {
+            if (!db) return;
+            
+            try {
+                const stmt = db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name");
+                const tables = [];
+                
+                while (stmt.step()) {
+                    const row = stmt.getAsObject();
+                    tables.push(row.name);
+                }
+                stmt.free();
+                
+                if (tables.length === 0) {
+                    tablesListDiv.innerHTML = '<div class="table-item">No tables found</div>';
+                } else {
+                    tablesListDiv.innerHTML = tables
+                        .map(table => `<div class="table-item">${table}</div>`)
+                        .join('');
+                }
+            } catch (error) {
+                console.error('Error loading tables:', error);
+                tablesListDiv.innerHTML = '<div class="table-item">Error loading tables</div>';
+            }
+        }
+
+        function executeQuery() {
+            if (!db) {
+                showStatus('Please load a database first', 'error');
+                return;
+            }
+
+            const query = queryInput.value.trim();
+            if (!query) {
+                showStatus('Please enter a query', 'error');
+                return;
+            }
+
+            // Prevent write operations
+            const writeOps = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'CREATE', 'ALTER'];
+            const upperQuery = query.toUpperCase();
+            
+            for (const op of writeOps) {
+                if (upperQuery.includes(op)) {
+                    showStatus(`Write operation "${op}" not allowed in read-only mode`, 'error');
+                    return;
+                }
+            }
+
+            resultsDiv.innerHTML = '<div class="loading">🔄 Executing query...</div>';
+
+            try {
+                const stmt = db.prepare(query);
+                const results = [];
+                let columns = [];
+
+                while (stmt.step()) {
+                    const row = stmt.getAsObject();
+                    if (columns.length === 0) {
+                        columns = Object.keys(row);
+                    }
+                    results.push(row);
+                }
+                stmt.free();
+
+                displayResults(results, columns);
+                showStatus(`Query executed successfully. ${results.length} rows returned.`, 'success');
+
+            } catch (error) {
+                showStatus('Query error: ' + error.message, 'error');
+                resultsDiv.innerHTML = `<div class="no-results">❌ Error: ${error.message}</div>`;
+                console.error('Query error:', error);
+            }
+        }
+
+        function displayResults(results, columns) {
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<div class="no-results">✅ Query executed successfully but returned no results</div>';
+                return;
+            }
+
+            let html = '<table class="results-table"><thead><tr>';
+            
+            // Table headers
+            columns.forEach(col => {
+                html += `<th>${escapeHtml(col)}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+
+            // Table rows
+            results.forEach(row => {
+                html += '<tr>';
+                columns.forEach(col => {
+                    const value = row[col];
+                    html += `<td>${escapeHtml(value !== null ? String(value) : 'NULL')}</td>`;
+                });
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            resultsDiv.innerHTML = html;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Handle Enter key in textarea (Ctrl+Enter to execute)
+        queryInput.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                executeQuery();
+            }
+        });
+    </script>
+</body>
+</html>
