@@ -1,5 +1,13 @@
 # org_chart_toy1 - Playing around with simple org chart data
 
+## SQLite3 Toy
+
+Try a simple SQLite3 in the web browser: https://payne.github.io/org_chart_toy1/
+
+Right now you need to upload a database.  I tried it with org.db from this repo.
+
+This SQLite3 in the web browser toy might work with several different SQLite3 databases.
+
 ## SQLite3 database creation
 
 Enter csv mode, import file with header line, save the database.
